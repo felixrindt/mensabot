@@ -10,7 +10,7 @@ import telepot
 from telepot.exception import BotWasBlockedError, BotWasKickedError, TelegramError
 from time import sleep
 from functools import lru_cache
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pytz
 import schedule
 import dateutil.parser
@@ -18,35 +18,19 @@ import retrying
 from emoji import emojize
 from dotenv import load_dotenv
 
+from pathlib import Path
+import urllib.request
+import itertools
+
 
 load_dotenv()
 log = logging.getLogger('mensabot')
 
-ingredients_re = re.compile(r'[(](\d+[a-z]*,?\s*)+[)]')
-price_re = re.compile(r'(\d+),(\d+) €')
-comma_re = re.compile(r'(\w[")]?)\s*,(\w)')
-
-URL = 'https://www.stwdo.de/mensa-co/tu-dortmund/hauptmensa/'
 TZ = pytz.timezone('Europe/Berlin')
 
 parser = ArgumentParser()
 parser.add_argument('--database', default='mensabot_clients.sqlite')
 
-
-MenuItem = namedtuple(
-    'MenuItem',
-    ['category', 'description', 'supplies', 'emoticons', 'p_student', 'p_staff', 'p_guest']
-)
-
-
-supplies_emoticons = {
-    'Mit Schweinefleisch': emojize(':pig:'),
-    'Mit Rindfleisch': emojize(':cow:'),
-    'Mit Geflügel': emojize(':rooster:'),
-    'Mit Fisch bzw. Meeresfrüchten': emojize(':fish:'),
-    'Ohne Fleisch': emojize(':carrot:'),
-    'Vegane Speise': emojize(':deciduous_tree:')
-}
 
 
 db = SqliteDatabase(None)
@@ -59,145 +43,33 @@ class Client(Model):
         database = db
 
 
-class MenuNotFound(Exception):
-    pass
+def ensure_png():
+    today = date.today()
+    folder = Path("UKEKasinoBot")
+    folder.mkdir(exist_ok=True)
 
+    pdf_filename = today.strftime("%Y_KW_%W.pdf")
+    pdf_path = folder / Path(pdf_filename)
+    if not pdf_path.exists():
+        # delete old files
+        for path in folder.glob("*.p*"):  # pdf and png ;)
+            os.remove(path)
+        
+        # get file
+        url = f"http://uke-healthkitchen.de/fileadmin/PDFs/{pdf_filename}"
+        with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
+            writer.write(request.read())
 
-def find_item(soup, cls):
-    return soup.find('div', {'class': re.compile('item {}.*'.format(cls))})
-
-
-@retrying.retry(
-    stop_max_delay=30000,
-    wait_fixed=2000,
-)
-def download_menu_page(day):
-    log.info('Downloading menu for day {}'.format(day))
-    ret = requests.get(URL, params={'tx_pamensa_mensa[date]': str(day)})
-    ret.raise_for_status()
-    log.info('Done')
-    return BeautifulSoup(ret.text, 'lxml')
-
-
-def extract_menu_items(soup):
-
-    menu_div = soup.find('div', {'class': 'meals-wrapper'})
-
-    if menu_div is None:
-        raise MenuNotFound
-
-    menu_items = menu_div.find_all('div', {'class': 'meal-item'})
-
-    return list(map(parse_menu_item, menu_items))
-
-
-def parse_price(price_div):
-    m = price_re.search(price_div.text)
-    euros, cents = map(int, m.groups())
-    return euros + cents / 100
-
-
-def parse_menu_item(menu_item):
-    category_item = find_item(menu_item, 'category').find('img')
-    if category_item is not None:
-        category = category_item['title']
-    else:
-        category = ''
-
-    description = find_item(menu_item, 'description').text.lstrip()
-    description = ingredients_re.sub('', description)
-    description = comma_re.sub(r'\1, \2', description)
-
-    supplies = [
-        img.get('title', '')
-        for img in find_item(menu_item, 'supplies').find_all('img')
-    ]
-    emoticons = ''.join(supplies_emoticons.get(s, '') for s in supplies)
-
-    p_student = parse_price(find_item(menu_item, 'price student'))
-    p_staff = parse_price(find_item(menu_item, 'price staff'))
-    p_guest = parse_price(find_item(menu_item, 'price guest'))
-
-    return MenuItem(category, description, supplies, emoticons, p_student, p_staff, p_guest)
-
-
-@lru_cache(maxsize=10)
-def get_menu(day):
-    soup = download_menu_page(day)
-    items = extract_menu_items(soup)
-    return items
-
-
-def format_menu(menu, full=False, date=None):
-
-
-    if full is False:
-        menu = filter(lambda i: i.category not in ('Grillstation', 'Beilagen'), menu)
-
-    title = '*Hauptmensa*'
-    if date is not None:
-        title += ' ({:%d.%m.%Y})'.format(date)
-
-    last_category = ''
-
-    items = []
-    for item in menu:
-        category = item.category or last_category
-        last_category = item.category
-        items.append(
-            '*{category}* - {item.emoticons}\n{item.description}'.format(
-                category=category, item=item
-            )
+    png_filename = today.strftime("%Y-%m-%d.png")
+    png_path = folder / Path(png_filename)
+    if not png_path.exists():
+        os.system(
+            "convert -density 300x300 -background white -alpha remove " +
+            f"{pdf_path!s} {png_path!s}"
         )
 
-    return title + '\n\n' + '\n\n'.join(items)
+    return png_path
 
-
-def build_menu_reply(text):
-    full = text.startswith('/fullmenu')
-
-    try:
-        datestring = text.split()[1]
-        dt = dateutil.parser.parse(datestring)
-    except (ValueError, IndexError):
-        dt = datetime.now(TZ)
-        if dt.hour >= 15:
-            dt += timedelta(days=1)
-
-    day = dt.date()
-
-    if day.weekday() >= 5:
-        return 'Am Wochenende bleibt die Mensaküche kalt'
-
-    try:
-        menu = get_menu(day)
-    except Exception:
-        log.error('Error getting menu')
-        return 'Fehler beim herunterladen von Tag {}'.format(day)
-
-    try:
-        return format_menu(menu, full=full, date=dt)
-    except Exception:
-        log.exception('Error formatting menu')
-        return 'Fehler beim formatieren von Tag {}'.format(day)
-
-
-def create_message(day):
-    try:
-        menu = get_menu(day)
-    except Exception:
-        log.error('Error getting menu')
-        return 'Fehler beim herunterladen des Menüs für {}'.format(day)
-
-    if len(menu) == 0:
-        log.error('Empty menu {}'.format(menu))
-        return 'Leeres Menü für {}'.format(day)
-
-    try:
-        return format_menu(menu, date=day)
-    except Exception as e:
-        logging.exception('Error formatting menu')
-        return 'Fehler beim formatieren des Menüs für {}'.format(day)
 
 
 
@@ -233,7 +105,11 @@ class MensaBot(telepot.Bot):
                 reply = start + 'das Menü doch gar nicht'
 
         elif text.startswith('/menu') or text.startswith('/fullmenu'):
-            reply = build_menu_reply(text)
+            self.sendMessage(chat_id, "Kommt sofort...", parse_mode='markdown')
+            path = ensure_png()
+            with open(path, "rb") as file:
+                self.sendPhoto(chat_id, file)
+            return
         else:
             reply = 'Das habe ich nicht verstanden'
 
@@ -246,11 +122,12 @@ class MensaBot(telepot.Bot):
         if day.weekday() >= 5:
             return
 
-        text = create_message(day)
+        path = ensure_png()
         for client in Client.select():
             log.info('Sending menu to {}'.format(client.chat_id))
             try:
-                self.sendMessage(client.chat_id, text, parse_mode='markdown')
+                with open(path, "rb") as file:
+                    self.sendPhoto(client.chat_id, file)
             except (BotWasBlockedError, BotWasKickedError):
                 log.warning('Removing client {}'.format(client.chat_id))
                 client.delete_instance()
