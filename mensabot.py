@@ -165,7 +165,7 @@ def main():
     bot.message_loop()
     log.info('Bot runnning')
 
-    schedule.every().day.at('11:00').do(bot.send_menu_to_clients)
+    schedule.every().day.at('10:30').do(bot.send_menu_to_clients)
 
     while True:
         try:
