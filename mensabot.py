@@ -64,7 +64,7 @@ def ensure_png():
     png_path = folder / Path(png_filename)
     if not png_path.exists():
         os.system(
-            "convert -density 300x300 -background white -alpha remove " +
+            "convert -limit memory 128mb -density 300x300 -background white -alpha remove " +
             f"{pdf_path!s} {png_path!s}"
         )
 
