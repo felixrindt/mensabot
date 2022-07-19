@@ -27,14 +27,14 @@ from email.message import EmailMessage
 
 
 load_dotenv()
-log = logging.getLogger('mensabot')
+log = logging.getLogger("mensabot")
 
-TZ = pytz.timezone('Europe/Berlin')
+TZ = pytz.timezone("Europe/Berlin")
 
 parser = ArgumentParser()
-parser.add_argument('--database', default='mensabot_clients.sqlite')
-parser.add_argument('--from-email')
-parser.add_argument('--to-email')
+parser.add_argument("--database", default="mensabot_clients.sqlite")
+parser.add_argument("--from-email")
+parser.add_argument("--to-email")
 
 
 db = SqliteDatabase(None)
@@ -51,11 +51,11 @@ class Client(Model):
 def send_email(from_addr, to_addrs, msg_subject, msg_body):
     msg = EmailMessage()
     msg.set_content(msg_body)
-    msg['From'] = from_addr
-    msg['To'] = to_addrs
-    msg['Subject'] = msg_subject
+    msg["From"] = from_addr
+    msg["To"] = to_addrs
+    msg["Subject"] = msg_subject
     sendmail_location = "/usr/sbin/sendmail"
-    log.info('Sending email to {}'.format(to_addrs))
+    log.info("Sending email to {}".format(to_addrs))
     subprocess.run([sendmail_location, "-t", "-oi"], input=msg.as_bytes())
 
 
@@ -70,7 +70,7 @@ def ensure_png():
         # delete old files
         for path in folder.glob("*.p*"):  # pdf and png ;)
             os.remove(path)
-        
+
         # get file
         url = f"http://uke-healthkitchen.de/fileadmin/PDFs/{pdf_filename}"
         with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
@@ -80,8 +80,8 @@ def ensure_png():
     png_path = folder / Path(png_filename)
     if not png_path.exists():
         os.system(
-            "convert -limit memory 128mb -density 300x300 -background white -alpha remove " +
-            f"{pdf_path!s} {png_path!s}"
+            "convert -limit memory 128mb -density 300x300 -background white -alpha remove "
+            + f"{pdf_path!s} {png_path!s}"
         )
 
     return png_path
@@ -96,7 +96,6 @@ Bei Fragen und Anregungen schicke eine Nachricht, die mit /feedback beginnt.
 
 
 class MensaBot(telepot.Bot):
-
     def __init__(self, *args, **kwargs):
         self.from_email = kwargs.pop("from_email", None)
         self.to_email = kwargs.pop("to_email", None)
@@ -105,20 +104,20 @@ class MensaBot(telepot.Bot):
     def handle(self, msg):
         content_type, chat_type, chat_id = telepot.glance(msg)
 
-        if content_type != 'text':
+        if content_type != "text":
             return
 
-        text = msg['text']
+        text = msg["text"]
 
-        if text.startswith('/start'):
+        if text.startswith("/start"):
             client, new = Client.get_or_create(chat_id=chat_id)
             if new:
-                reply = 'Das Menü kommt ab jetzt jeden Tag um 10:30.\n' + HELP_TEXT
+                reply = "Das Menü kommt ab jetzt jeden Tag um 10:30.\n" + HELP_TEXT
             else:
-                reply = 'Das Menü ist bereits abonniert!\n' + HELP_TEXT
-        elif text.startswith('/help'):
+                reply = "Das Menü ist bereits abonniert!\n" + HELP_TEXT
+        elif text.startswith("/help"):
             reply = HELP_TEXT
-        elif text.startswith('/mondays'):
+        elif text.startswith("/mondays"):
             try:
                 client = Client.get(chat_id=chat_id)
                 client.only_monday_full_menu = True
@@ -126,7 +125,7 @@ class MensaBot(telepot.Bot):
                 reply = "Das Menü kommt jetzt nur noch am Montag."
             except Client.DoesNotExist:
                 reply = "Das Menü ist gar nicht abonniert.\n" + HELP_TEXT
-        elif text.startswith('/weekdays'):
+        elif text.startswith("/weekdays"):
             try:
                 client = Client.get(chat_id=chat_id)
                 client.only_monday_full_menu = False
@@ -134,14 +133,14 @@ class MensaBot(telepot.Bot):
                 reply = "Das Menü kommt jetzt Montag bis Freitag."
             except Client.DoesNotExist:
                 reply = "Das Menü ist gar nicht abonniert.\n" + HELP_TEXT
-        elif text.startswith('/stop'):
+        elif text.startswith("/stop"):
             try:
                 client = Client.get(chat_id=chat_id)
                 client.delete_instance()
                 reply = "Das Menü wurde abbestellt."
             except Client.DoesNotExist:
                 reply = "Das Menü ist bereits abbestellt.\n" + HELP_TEXT
-        elif text.startswith('/feedback'):
+        elif text.startswith("/feedback"):
             if self.to_email and self.from_email:
                 send_email(
                     from_addr=self.from_email,
@@ -149,47 +148,49 @@ class MensaBot(telepot.Bot):
                     msg_subject="Kasinobot Feedback",
                     msg_body=f"""Vom Chat mit der ID {chat_id} kam folgendes Feedback:
 
-                    {text}"""
+                    {text}""",
                 )
                 reply = "Das habe ich weitergegeben."
             else:
                 reply = "Es ist kein Feedbackempfänger verfügbar."
-        elif text.startswith('/menu') or text.startswith('/fullmenu'):
-            self.sendMessage(chat_id, "Kommt sofort...", parse_mode='markdown')
+        elif text.startswith("/menu") or text.startswith("/fullmenu"):
+            self.sendMessage(chat_id, "Kommt sofort...", parse_mode="markdown")
             path = ensure_png()
             with open(path, "rb") as file:
                 self.sendPhoto(chat_id, file)
             return
         else:
-            reply = 'Das habe ich nicht verstanden.'
+            reply = "Das habe ich nicht verstanden."
 
-        log.info('Sending message to {}'.format(chat_id))
-        self.sendMessage(chat_id, reply, parse_mode='markdown')
+        log.info("Sending message to {}".format(chat_id))
+        self.sendMessage(chat_id, reply, parse_mode="markdown")
 
     def send_menu_to_clients(self):
         day = datetime.now(TZ).date()
-        
+
         if day.weekday() >= 5:
             return
 
-        log.info('Sending menu to clients')
+        log.info("Sending menu to clients")
         path = ensure_png()
         for client in Client.select():
             if client.only_monday_full_menu and day.weekday() >= 1:
                 continue
-            log.info('Sending menu to {}'.format(client.chat_id))
+            log.info("Sending menu to {}".format(client.chat_id))
             try:
                 with open(path, "rb") as file:
                     self.sendPhoto(client.chat_id, file)
             except (BotWasBlockedError, BotWasKickedError):
-                log.warning('Removing client {}'.format(client.chat_id))
+                log.warning("Removing client {}".format(client.chat_id))
                 client.delete_instance()
             except TelegramError as e:
                 if e.error_code == 403:
-                    log.warning('Removing client {}'.format(client.chat_id))
+                    log.warning("Removing client {}".format(client.chat_id))
                     client.delete_instance()
             except Exception as e:
-                logging.exception('Error sending message to client {}'.format(client.chat_id))
+                logging.exception(
+                    "Error sending message to client {}".format(client.chat_id)
+                )
 
 
 def main():
@@ -197,14 +198,14 @@ def main():
 
     log.setLevel(logging.DEBUG)
     formatter = logging.Formatter(
-        fmt='%(asctime)s|%(levelname)s|%(name)s|%(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
+        fmt="%(asctime)s|%(levelname)s|%(name)s|%(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     log.addHandler(stream_handler)
 
-    file_handler = logging.FileHandler('mensabot.log')
+    file_handler = logging.FileHandler("mensabot.log")
     file_handler.setFormatter(formatter)
     log.addHandler(file_handler)
 
@@ -215,26 +216,24 @@ def main():
     log.info("Database contains {} active clients".format(Client.select().count()))
 
     bot = MensaBot(
-            os.environ['BOT_TOKEN'],
-            from_email=args.from_email,
-            to_email=args.to_email
-            )
+        os.environ["BOT_TOKEN"], from_email=args.from_email, to_email=args.to_email
+    )
     bot.message_loop()
-    log.info('Bot runnning')
+    log.info("Bot runnning")
 
-    schedule.every().day.at('10:30').do(bot.send_menu_to_clients)
+    schedule.every().day.at("10:30").do(bot.send_menu_to_clients)
 
     while True:
         try:
             schedule.run_pending()
         except:
-            log.exception('Exception during schedule execution')
+            log.exception("Exception during schedule execution")
         sleep(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     try:
         main()
     except (KeyboardInterrupt, SystemExit):
-        log.info('Aborted')
+        log.info("Aborted")
