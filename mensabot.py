@@ -146,9 +146,7 @@ class MensaBot(telepot.Bot):
                     from_addr=self.from_email,
                     to_addrs=self.to_email,
                     msg_subject="Kasinobot Feedback",
-                    msg_body=f"""Vom Chat mit der ID {chat_id} kam folgendes Feedback:
-
-                    {text}""",
+                    msg_body=f"Vom Chat mit der ID {chat_id} kam folgendes Feedback:\n\n{text}"
                 )
                 reply = "Das habe ich weitergegeben."
             else:
