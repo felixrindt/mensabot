@@ -142,13 +142,17 @@ class MensaBot(telepot.Bot):
                 reply = "Das Menü ist bereits abbestellt.\n" + HELP_TEXT
         elif text.startswith("/feedback"):
             if self.to_email and self.from_email:
-                send_email(
-                    from_addr=self.from_email,
-                    to_addrs=self.to_email,
-                    msg_subject="Kasinobot Feedback",
-                    msg_body=f"Vom Chat mit der ID {chat_id} kam folgendes Feedback:\n\n{text}"
-                )
-                reply = "Das habe ich weitergegeben."
+                content = text.lstrip("/feedback").strip()
+                if content:
+                    send_email(
+                        from_addr=self.from_email,
+                        to_addrs=self.to_email,
+                        msg_subject="Kasinobot Feedback",
+                        msg_body=f"Vom Chat mit der ID {chat_id} kam folgendes Feedback:\n\n{content}"
+                    )
+                    reply = "Das habe ich weitergegeben."
+                else:
+                    reply = "Schreib deine Nachricht hinter /feedback"
             else:
                 reply = "Es ist kein Feedbackempfänger verfügbar."
         elif text.startswith("/menu") or text.startswith("/fullmenu"):
