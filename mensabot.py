@@ -156,16 +156,23 @@ class MensaBot(telepot.Bot):
             else:
                 reply = "Es ist kein Feedbackempfänger verfügbar."
         elif text.startswith("/menu") or text.startswith("/fullmenu"):
-            self.sendMessage(chat_id, "Kommt sofort...", parse_mode="markdown")
-            path = ensure_png()
-            with open(path, "rb") as file:
-                self.sendPhoto(chat_id, file)
-            return
+            try:
+                self.sendMessage(chat_id, "Kommt sofort...", parse_mode="markdown")
+                path = ensure_png()
+                with open(path, "rb") as file:
+                    self.sendPhoto(chat_id, file)
+            except BlockWasBlockedError:
+                Client.delete().where(chat_id=chat_id)
+            finally:
+                return
         else:
             reply = "Das habe ich nicht verstanden."
 
         log.info("Sending message to {}".format(chat_id))
-        self.sendMessage(chat_id, reply, parse_mode="markdown")
+        try:
+            self.sendMessage(chat_id, reply, parse_mode="markdown")
+        except BlockWasBlockedError:
+            Client.delete().where(chat_id=chat_id)
 
     def send_menu_to_clients(self):
         day = datetime.now(TZ).date()
