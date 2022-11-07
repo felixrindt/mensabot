@@ -64,7 +64,8 @@ def ensure_png():
     folder = Path("UKEKasinoBot")
     folder.mkdir(exist_ok=True)
 
-    pdf_filename = today.strftime("%Y_KW_%W.pdf")
+    # https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/2022-kw-45.pdf
+    pdf_filename = today.strftime("%Y-kw-%W.pdf")
     pdf_path = folder / Path(pdf_filename)
     if not pdf_path.exists():
         # delete old files
@@ -72,7 +73,7 @@ def ensure_png():
             os.remove(path)
 
         # get file
-        url = f"http://uke-healthkitchen.de/fileadmin/PDFs/{pdf_filename}"
+        url = f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{pdf_filename}"
         with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
             writer.write(request.read())
 
