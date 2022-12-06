@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from pathlib import Path
 import urllib.request
+from urllib.error import HTTPError
 import itertools
 
 import subprocess
@@ -73,9 +74,21 @@ def ensure_png():
             os.remove(path)
 
         # get file
-        url = f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{pdf_filename}"
-        with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
-            writer.write(request.read())
+        internet_filename_candidates = [
+                pdf_filename.lower(),
+                pdf_filename.upper(),
+                pdf_filename.lower().rstrip(".pdf") + "-2.pdf",
+                pdf_filename.upper().rstrip(".pdf") + "-2.pdf",
+        ]
+        for candidate in internet_filename_candidates:
+            url = f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{candidate}"
+            try:
+                with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
+                    writer.write(request.read())
+            except HTTPError:
+                continue
+            else:
+                break
 
     png_filename = today.strftime("%Y-%m-%d.png")
     png_path = folder / Path(png_filename)
