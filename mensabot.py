@@ -124,7 +124,10 @@ class MensaBot(telepot.Bot):
         text = msg["text"]
 
         if text.startswith("/start"):
-            client, new = Client.get_or_create(chat_id=chat_id)
+            client, new = Client.get_or_create(
+                chat_id=chat_id,
+                only_monday_full_menu=True,
+            )
             if new:
                 reply = "Das Menü kommt ab jetzt jeden Tag um 10:30.\n" + HELP_TEXT
             else:
