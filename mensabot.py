@@ -79,6 +79,7 @@ def ensure_png():
                 pdf_filename.upper(),
                 pdf_filename.lower().rstrip(".pdf") + "-2.pdf",
                 pdf_filename.upper().rstrip(".pdf") + "-2.pdf",
+                today.strftime("uke-bio-kw-%W.pdf"),  # 2023-03-27 Bio-Aktionswoche
         ]
         for candidate in internet_filename_candidates:
             url = f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{candidate}"
