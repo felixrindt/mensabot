@@ -75,7 +75,7 @@ def ensure_png():
 
         # get file
         candidates = []
-        WEBPAGE = "https://intranet.uke.de/service/gastronomie/index.html"
+        WEBPAGE = "https://www.uke.de/organisationsstruktur/tochtergesellschaften/klinik-gastronomie-eppendorf/index.html"
         with urllib.request.urlopen(WEBPAGE) as request:
             soup = BeautifulSoup(request.read(), "lxml")
             links = soup.find_all(
@@ -87,7 +87,7 @@ def ensure_png():
                 }
             )
             if len(links) == 1:
-                candidates.append('https://intranet.uke.de' + links[0].get("href"))
+                candidates.append('https://www.uke.de' + links[0].get("href"))
 
         candidates += [
             f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{name}"
@@ -100,7 +100,7 @@ def ensure_png():
         ]
         for url in candidates:
             try:
-                print(f"trying {url=}")
+                log.info(f"trying {url=}")
                 with urllib.request.urlopen(url) as request, open(
                     pdf_path, "wb"
                 ) as writer:
