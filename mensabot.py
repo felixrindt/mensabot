@@ -74,17 +74,36 @@ def ensure_png():
             os.remove(path)
 
         # get file
-        internet_filename_candidates = [
+        candidates = []
+        WEBPAGE = "https://intranet.uke.de/service/gastronomie/index.html"
+        with urllib.request.urlopen(WEBPAGE) as request:
+            soup = BeautifulSoup(request.read(), "lxml")
+            links = soup.find_all(
+                name="a",
+                string=re.compile("KW.*" + today.strftime("%W")),
+                attrs={
+                    "class": "uke-download",
+                    "href": re.compile(".pdf$"),
+                }
+            )
+            if len(links) == 1:
+                candidates.append('https://intranet.uke.de' + links[0].get("href"))
+
+        candidates += [
+            f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{name}"
+            for name in [
                 pdf_filename.lower(),
                 pdf_filename.upper(),
                 pdf_filename.lower().rstrip(".pdf") + "-2.pdf",
-                pdf_filename.upper().rstrip(".pdf") + "-2.pdf",
-                today.strftime("uke-bio-kw-%W.pdf"),  # 2023-03-27 Bio-Aktionswoche
+                pdf_filename.upper().rstrip(".PDF") + "-2.pdf",
+            ]
         ]
-        for candidate in internet_filename_candidates:
-            url = f"https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/{candidate}"
+        for url in candidates:
             try:
-                with urllib.request.urlopen(url) as request, open(pdf_path, "wb") as writer:
+                print(f"trying {url=}")
+                with urllib.request.urlopen(url) as request, open(
+                    pdf_path, "wb"
+                ) as writer:
                     writer.write(request.read())
             except HTTPError:
                 continue
@@ -166,7 +185,7 @@ class MensaBot(telepot.Bot):
                         from_addr=self.from_email,
                         to_addrs=self.to_email,
                         msg_subject="Kasinobot Feedback",
-                        msg_body=f"Vom Chat mit der ID {chat_id} kam folgendes Feedback:\n\n{content}"
+                        msg_body=f"Vom Chat mit der ID {chat_id} kam folgendes Feedback:\n\n{content}",
                     )
                     reply = "Das habe ich weitergegeben."
                 else:
