@@ -157,7 +157,7 @@ class MensaBot(telepot.Bot):
         elif text.startswith("/mondays"):
             try:
                 client = Client.get(chat_id=chat_id)
-                client.only_monday_full_menu = True
+                client.only_monday_full_menu = False
                 client.save()
                 reply = "Das Menü kommt jetzt nur noch am Montag."
             except Client.DoesNotExist:
