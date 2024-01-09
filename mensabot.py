@@ -80,12 +80,13 @@ def ensure_png():
             soup = BeautifulSoup(request.read(), "lxml")
             links = soup.find_all(
                 name="a",
-                string=re.compile("KW.*" + today.strftime("%W")),
+                string=re.compile("KW\s*0?" + today.strftime("%-W")),
                 attrs={
                     "class": "uke-download",
                     "href": re.compile(".pdf$"),
                 }
             )
+            log.debug(f"souped up {links}")
             if len(links) == 1:
                 candidates.append('https://www.uke.de' + links[0].get("href"))
 
