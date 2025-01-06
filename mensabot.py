@@ -80,7 +80,7 @@ def ensure_png():
             soup = BeautifulSoup(request.read(), "lxml")
             links = soup.find_all(
                 name="a",
-                string=re.compile(rf"KW\s*0?{today.isocalendar()[1]}")),
+                string=re.compile(rf"KW\s*0?{today.isocalendar()[1]}"),
                 attrs={
                     "class": "uke-download",
                     "href": re.compile(".pdf$"),
