@@ -62,7 +62,7 @@ def send_email(from_addr, to_addrs, msg_subject, msg_body):
 
 def ensure_png():
     today = date.today()
-    folder = Path("UKEKasinoBot")
+    folder = Path("UKEKasinoBot_images")
     folder.mkdir(exist_ok=True)
 
     # https://www.uke.de/dateien/servicegesellschaften/kge-klinik-gastronomie-eppendorf/2022-kw-45.pdf
@@ -241,6 +241,8 @@ class MensaBot(telepot.Bot):
 
 
 def main():
+    if not os.environ.get("BOT_TOKEN"):
+        raise ValueError("You need to provide the BOT_TOKEN env variable")
     args = parser.parse_args()
 
     log.setLevel(logging.DEBUG)
@@ -282,5 +284,9 @@ if __name__ == "__main__":
 
     try:
         main()
+    except ValueError:
+        log.info("Error, trying image")
+        path = ensure_png()
+        log.info(f"Saved to {path}")
     except (KeyboardInterrupt, SystemExit):
         log.info("Aborted")
