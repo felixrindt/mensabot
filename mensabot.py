@@ -114,9 +114,10 @@ def ensure_png():
     png_filename = today.strftime("%Y-%m-%d.png")
     png_path = folder / Path(png_filename)
     if not png_path.exists():
+        os.system(f"pdftoppm {pdf_path!s} {png_path!s} -png")
         os.system(
             "convert -limit memory 128mb -density 300x300 -background white -alpha remove "
-            + f"{pdf_path!s} {png_path!s}"
+            + f"{png_path!s} {png_path!s}"
         )
 
     return png_path
